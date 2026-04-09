@@ -1,0 +1,7 @@
+{
+  "name": "grok-proxy",
+  "description": "Fetch Grok shared conversations via the ai-session-proxy and return full content including sources.",
+  "author": {
+    "name": "Jaquatech"
+  }
+}

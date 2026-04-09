@@ -1,0 +1,14 @@
+{
+  "name": "ai-session-proxy",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker proxy for AI tools to access session-gated content",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dry": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "^4.81.1"
+  }
+}
