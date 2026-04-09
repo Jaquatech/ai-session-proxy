@@ -2,6 +2,19 @@
 
 A Cloudflare Worker that proxies Grok share links via their public REST API, returning clean JSON content for AI consumption.
 
+## Table of Contents
+
+- [How it works](#how-it-works)
+- [Supported Services](#supported-services)
+- [Cloudflare Deployment](#cloudflare-deployment)
+- [API](#api)
+- [Claude Code Skill](#claude-code-skill)
+- [Claude Web](#claude-web)
+- [Adding more services](#adding-more-services)
+- [License](#license)
+
+---
+
 ## How it works
 
 Grok share links are protected by a login wall in the browser, but served via a public REST endpoint under the hood. This Worker calls that endpoint directly and returns the conversation as JSON — no session cookies, no authentication needed.
@@ -174,17 +187,34 @@ Claude fetches the conversation and presents title, question, and answer.
 
 The `full` argument includes all web sources and X posts Grok referenced.
 
-### Claude web
+---
 
-Claude web can also use the proxy directly since the Worker removes the session requirement. Paste the proxied URL into Claude web:
+## Claude Web
+
+Since the Worker removes the session requirement, Claude web (claude.ai) can fetch the proxy URL directly — no plugin needed.
+
+### Option 1 — Paste the proxied URL directly
+
+Construct the URL yourself and paste it into Claude web:
 
 ```
 https://yourdomain.com/ai-session-proxy/https://grok.com/share/{id}
 ```
 
-Or add a Project instruction in claude.ai:
+Claude web will fetch and read the full JSON response. Add `?mode=full` to include sources.
 
-> "When I share a grok.com/share/ URL, prepend https://yourdomain.com/ai-session-proxy/ to it and fetch the result."
+### Option 2 — Claude web Project instruction
+
+Create a [Project](https://claude.ai) on claude.ai and add the following custom instruction:
+
+```
+When I share a grok.com/share/ URL, automatically prepend
+https://yourdomain.com/ai-session-proxy/ to construct the proxy URL,
+fetch its contents, and present the conversation title, question, and answer.
+Add ?mode=full to include the web sources Grok referenced.
+```
+
+After that, paste any Grok share link in the Project chat and Claude web handles it automatically — same experience as the Claude Code skill.
 
 ---
 
