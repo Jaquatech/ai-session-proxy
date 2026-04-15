@@ -4,9 +4,9 @@
  * returning clean JSON content for AI consumption.
  *
  * Usage:
- *   GET /ai-session-proxy/https://grok.com/share/{id}           → clean chat log
+ *   GET /ai-session-proxy/https://grok.com/share/{id}           → clean chat log (Grok special handling)
  *   GET /ai-session-proxy/https://grok.com/share/{id}?mode=full → chat log + sources
- *   GET /ai-session-proxy/https://grok.com/share/{id}?ua=chrome → mimic Chrome browser headers
+ *   GET /ai-session-proxy/https://example.com/any/path          → generic fetch with Chrome UA headers
  */
 
 export default {
@@ -17,7 +17,6 @@ export default {
 
     const reqUrl = new URL(request.url);
     const fullMode = reqUrl.searchParams.get('mode') === 'full';
-    const uaMode = reqUrl.searchParams.get('ua');
     const prefix = '/ai-session-proxy/';
 
     if (!reqUrl.pathname.startsWith(prefix)) {
@@ -37,14 +36,14 @@ export default {
     }
 
     if (targetUrl.hostname.endsWith('grok.com')) {
-      return handleGrok(targetUrl, fullMode, uaMode);
+      return handleGrok(targetUrl, fullMode);
     }
 
-    return json({ error: 'Unsupported service. Supported: grok.com' }, 400);
+    return handleGeneric(targetUrl);
   }
 };
 
-async function handleGrok(targetUrl, fullMode, uaMode) {
+async function handleGrok(targetUrl, fullMode) {
   const shareMatch = targetUrl.pathname.match(/^\/share\/([^/?#]+)/);
 
   if (!shareMatch) {
@@ -57,21 +56,14 @@ async function handleGrok(targetUrl, fullMode, uaMode) {
   const shareId = shareMatch[1];
   const apiUrl = `https://grok.com/rest/app-chat/share_links/${shareId}`;
 
-  const outboundHeaders = uaMode === 'chrome'
-    ? {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://www.google.com/',
-      }
-    : {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (compatible; ai-session-proxy/1.0)',
-      };
-
   let response;
   try {
-    response = await fetch(apiUrl, { headers: outboundHeaders });
+    response = await fetch(apiUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; ai-session-proxy/1.0)',
+      }
+    });
   } catch (err) {
     return json({ error: `Fetch failed: ${err.message}` }, 502);
   }
@@ -111,6 +103,55 @@ function extractFields(r, fullMode) {
     xpostIds: r.xpostIds || [],
     xposts: r.xposts || [],
   };
+}
+
+async function handleGeneric(targetUrl) {
+  let response;
+  try {
+    response = await fetch(targetUrl.toString(), {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.google.com/',
+      }
+    });
+  } catch (err) {
+    return json({ error: `Fetch failed: ${err.message}` }, 502);
+  }
+
+  if (!response.ok) {
+    return json({ error: `Target returned ${response.status}` }, 502);
+  }
+
+  const contentType = response.headers.get('Content-Type') || '';
+  const body = await response.text();
+
+  // Non-HTML: return raw content wrapped in JSON
+  if (!contentType.includes('text/html')) {
+    return json({ url: targetUrl.toString(), contentType, content: body });
+  }
+
+  // HTML: extract clean text for AI consumption
+  const titleMatch = body.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const title = titleMatch
+    ? titleMatch[1].replace(/<[^>]+>/g, '').trim()
+    : null;
+
+  const content = body
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#\d+;/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return json({ url: targetUrl.toString(), title, content });
 }
 
 function json(data, status = 200) {

@@ -92,8 +92,8 @@ curl "https://yourdomain.com/ai-session-proxy/https://grok.com/share/bGVnYWN5_5a
 # Full mode — chat log + sources
 curl "https://yourdomain.com/ai-session-proxy/https://grok.com/share/bGVnYWN5_5a59a2a9-0670-4259-880b-87bcf38174f5?mode=full"
 
-# Chrome UA mode — mimic a real browser request
-curl "https://yourdomain.com/ai-session-proxy/https://grok.com/share/bGVnYWN5_5a59a2a9-0670-4259-880b-87bcf38174f5?ua=chrome"
+# Generic mode — fetch any URL with Chrome headers
+curl "https://yourdomain.com/ai-session-proxy/https://example.com/some/page"
 ```
 
 ### Local development
@@ -141,22 +141,33 @@ GET /ai-session-proxy/https://grok.com/share/{id}?mode=full
 
 Same as default, plus `sender`, `parentResponseId`, `webSearchResults`, `xpostIds`, and `xposts` on each response entry — all the research Grok used to build its answer.
 
-### Chrome UA mode
+### Generic mode
 
 ```
-GET /ai-session-proxy/https://grok.com/share/{id}?ua=chrome
+GET /ai-session-proxy/https://example.com/any/path
 ```
 
-Injects Chrome browser headers into the outbound request to Grok's API:
+For any non-grok URL, the Worker fetches the page using Chrome browser headers and returns clean, AI-friendly JSON. Useful for feeding web pages to Claude web or other AI tools without dealing with raw HTML.
 
-```
-User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36
-Accept: text/html,application/xhtml+xml,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.9
-Referer: https://www.google.com/
+**HTML pages** — scripts, styles, and tags are stripped; clean text is returned:
+
+```json
+{
+  "url": "https://example.com/some/page",
+  "title": "Page title",
+  "content": "All visible text content from the page..."
+}
 ```
 
-Useful if Grok starts blocking the default proxy User-Agent. Can be combined with `?mode=full&ua=chrome`.
+**Non-HTML responses** (JSON APIs, plain text, etc.) — returned as-is wrapped in JSON:
+
+```json
+{
+  "url": "https://example.com/api/data",
+  "contentType": "application/json",
+  "content": "..."
+}
+```
 
 ---
 
