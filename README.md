@@ -91,6 +91,9 @@ curl "https://yourdomain.com/ai-session-proxy/https://grok.com/share/bGVnYWN5_5a
 
 # Full mode — chat log + sources
 curl "https://yourdomain.com/ai-session-proxy/https://grok.com/share/bGVnYWN5_5a59a2a9-0670-4259-880b-87bcf38174f5?mode=full"
+
+# Chrome UA mode — mimic a real browser request
+curl "https://yourdomain.com/ai-session-proxy/https://grok.com/share/bGVnYWN5_5a59a2a9-0670-4259-880b-87bcf38174f5?ua=chrome"
 ```
 
 ### Local development
@@ -137,6 +140,23 @@ GET /ai-session-proxy/https://grok.com/share/{id}?mode=full
 ```
 
 Same as default, plus `sender`, `parentResponseId`, `webSearchResults`, `xpostIds`, and `xposts` on each response entry — all the research Grok used to build its answer.
+
+### Chrome UA mode
+
+```
+GET /ai-session-proxy/https://grok.com/share/{id}?ua=chrome
+```
+
+Injects Chrome browser headers into the outbound request to Grok's API:
+
+```
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.9
+Referer: https://www.google.com/
+```
+
+Useful if Grok starts blocking the default proxy User-Agent. Can be combined with `?mode=full&ua=chrome`.
 
 ---
 
