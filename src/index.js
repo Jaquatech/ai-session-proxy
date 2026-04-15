@@ -6,6 +6,7 @@
  * Usage:
  *   GET /ai-session-proxy/https://grok.com/share/{id}           → clean chat log
  *   GET /ai-session-proxy/https://grok.com/share/{id}?mode=full → chat log + sources
+ *   GET /ai-session-proxy/https://grok.com/share/{id}?ua=chrome → mimic Chrome browser headers
  */
 
 export default {
@@ -16,6 +17,7 @@ export default {
 
     const reqUrl = new URL(request.url);
     const fullMode = reqUrl.searchParams.get('mode') === 'full';
+    const uaMode = reqUrl.searchParams.get('ua');
     const prefix = '/ai-session-proxy/';
 
     if (!reqUrl.pathname.startsWith(prefix)) {
@@ -35,14 +37,14 @@ export default {
     }
 
     if (targetUrl.hostname.endsWith('grok.com')) {
-      return handleGrok(targetUrl, fullMode);
+      return handleGrok(targetUrl, fullMode, uaMode);
     }
 
     return json({ error: 'Unsupported service. Supported: grok.com' }, 400);
   }
 };
 
-async function handleGrok(targetUrl, fullMode) {
+async function handleGrok(targetUrl, fullMode, uaMode) {
   const shareMatch = targetUrl.pathname.match(/^\/share\/([^/?#]+)/);
 
   if (!shareMatch) {
@@ -55,14 +57,21 @@ async function handleGrok(targetUrl, fullMode) {
   const shareId = shareMatch[1];
   const apiUrl = `https://grok.com/rest/app-chat/share_links/${shareId}`;
 
-  let response;
-  try {
-    response = await fetch(apiUrl, {
-      headers: {
+  const outboundHeaders = uaMode === 'chrome'
+    ? {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.google.com/',
+      }
+    : {
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (compatible; ai-session-proxy/1.0)',
-      }
-    });
+      };
+
+  let response;
+  try {
+    response = await fetch(apiUrl, { headers: outboundHeaders });
   } catch (err) {
     return json({ error: `Fetch failed: ${err.message}` }, 502);
   }
